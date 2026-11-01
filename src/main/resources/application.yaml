@@ -1,3 +1,26 @@
 spring:
   application:
     name: sprout
+  main:
+    keep-alive: true
+
+sprout:
+  ingress:
+    domain: localhost
+    port: 8080
+  leader-election:
+    enabled: false
+
+---
+# Used by the in-cluster Deployment: JSON logs on stdout, leader election on, no host port in preview URLs.
+spring:
+  config:
+    activate:
+      on-profile: prod
+logging:
+  structured:
+    format:
+      console: logstash
+sprout:
+  leader-election:
+    enabled: true
