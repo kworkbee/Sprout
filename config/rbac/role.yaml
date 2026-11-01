@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sprout-operator
+  namespace: sprout-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sprout-operator
+rules:
+  - apiGroups: [sprout.dev]
+    resources: [previewenvironments]
+    verbs: [get, list, watch, update, patch, delete]
+  - apiGroups: [sprout.dev]
+    resources: [previewenvironments/status]
+    verbs: [get, update, patch]
+  - apiGroups: [sprout.dev]
+    resources: [previewenvironments/finalizers]
+    verbs: [update]
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, watch, create, patch, delete]
+  - apiGroups: [""]
+    resources: [services, resourcequotas, limitranges]
+    verbs: [get, list, watch, create, patch]
+  # Secrets: list/watch is cluster-wide (the informer only caches managed-by=sprout objects);
+  # get also covers the shareable source secrets in the source namespace.
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, list, watch, create, patch, delete]
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create, patch]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list, watch, create, patch]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses, networkpolicies]
+    verbs: [get, list, watch, create, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sprout-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sprout-operator
+subjects:
+  - kind: ServiceAccount
+    name: sprout-operator
+    namespace: sprout-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sprout-leader-election
+  namespace: sprout-system
+rules:
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    verbs: [get, list, watch, create, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sprout-leader-election
+  namespace: sprout-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: sprout-leader-election
+subjects:
+  - kind: ServiceAccount
+    name: sprout-operator
+    namespace: sprout-system
