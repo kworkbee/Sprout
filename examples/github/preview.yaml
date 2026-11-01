@@ -1,0 +1,41 @@
+# Copy to .github/workflows/preview.yaml of the *application* repository.
+# Creates one PreviewEnvironment per pull request and removes it when the PR is closed.
+# The runner needs kubectl access to the cluster running Sprout (KUBECONFIG_B64 secret, a ServiceAccount
+# that may only create/delete previewenvironments.sprout.dev), and the image must be pushed beforehand.
+name: preview
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    env:
+      NAME: pr-${{ github.event.number }}
+    steps:
+      - name: Configure kubectl
+        run: |
+          mkdir -p ~/.kube && echo "${{ secrets.KUBECONFIG_B64 }}" | base64 -d > ~/.kube/config
+
+      - name: Create or update the environment
+        if: github.event.action != 'closed'
+        run: |
+          kubectl apply -f - <<EOF
+          apiVersion: sprout.dev/v1alpha1
+          kind: PreviewEnvironment
+          metadata:
+            name: ${NAME}
+            labels:
+              github.com/repository: ${{ github.event.repository.name }}
+          spec:
+            image: ghcr.io/${{ github.repository }}:${NAME}
+            port: 8080
+            ttl: 24h
+            ingress: {}
+          EOF
+          kubectl wait --for=condition=Ready pe/${NAME} --timeout=300s
+          echo "URL=$(kubectl get pe/${NAME} -o jsonpath='{.status.url}')" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the environment
+        if: github.event.action == 'closed'
+        run: kubectl delete pe/${NAME} --ignore-not-found --wait=false
